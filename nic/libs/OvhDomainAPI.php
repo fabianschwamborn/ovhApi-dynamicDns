@@ -263,5 +263,21 @@ class OvhDomainAPI {
         $path = "/domain/zone/$zoneName/refresh";
         $this->call('POST', $path);
     }
+
+    /**
+     * Deletes a DNS record.
+     *
+     * @param string $zoneName The DNS zone name.
+     * @param int    $recordId The DNS record ID.
+     *
+     * @return void
+     *
+     * @throws Exception If the API call fails.
+     */
+    public function deleteDnsRecord($zoneName, $recordId) {
+        $path = "/domain/zone/$zoneName/record/$recordId";
+        $this->call('DELETE', $path);
+
+    }
 }
 ?>

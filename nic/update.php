@@ -159,18 +159,34 @@ if (strpos($authHeader, 'Basic ') === 0) {
         // Array to hold response messages
         $responses = [];
 
-        // Update IPv4 address
-        if (!is_null($ipv4)) {
-            $fieldType = 'A';
-            $records = $ovh->getDnsRecords($config['zone_name'], $subdomain, $fieldType);
 
-            if (empty($records)) {
+        // Query existing DNS records for the subdomain
+        $aRecords = $ovh->getDnsRecords($config['zone_name'], $subdomain, 'A');
+        if (count($aRecords) > 1) {
+            // Multiple records found, respond with error
+            http_response_code(500); // Internal Server Error
+            echo '911 multiple existing A records in DNS server found instead of one';
+            exit;
+        }
+
+        $aaaaRecords = $ovh->getDnsRecords($config['zone_name'], $subdomain, 'AAAA');
+        if (count($aaaaRecords) > 1) {
+            // Multiple records found, respond with error
+            http_response_code(500); // Internal Server Error
+            echo '911 multiple existing AAAA records in DNS server found instead of one';
+            exit;
+        }
+
+        // Try Update IPv4 address
+        if (!is_null($ipv4)) {
+
+            if (empty($aRecords)) {
                 // No records found, create new one with TTL=60
-                $ovh->createDnsRecord($config['zone_name'], $subdomain, $fieldType, $ipv4, $ttl);
+                $ovh->createDnsRecord($config['zone_name'], $subdomain, 'A', $ipv4, $ttl);
                 $responses[] = "good $ipv4";
-            } elseif (count($records) === 1) {
+            } else {
                 // Exactly one record found, retrieve current IP
-                $recordDetails = $ovh->getDnsRecordDetails($config['zone_name'], $records[0]);
+                $recordDetails = $ovh->getDnsRecordDetails($config['zone_name'], $aRecords[0]);
                 $currentRecordIp = $recordDetails['target']; // Adjust this based on actual API response structure
 
                 if ($currentRecordIp === $ipv4) {
@@ -178,29 +194,28 @@ if (strpos($authHeader, 'Basic ') === 0) {
                     $responses[] = "nochg $ipv4";
                 } else {
                     // IP does not match, update the record
-                    $ovh->updateDnsRecord($config['zone_name'], $records[0], $ipv4, $ttl);
+                    $ovh->updateDnsRecord($config['zone_name'], $aRecords[0], $ipv4, $ttl);
                     $responses[] = "good $ipv4";
                 }
-            } else {
-                // Multiple records found, respond with error
-                http_response_code(500); // Internal Server Error
-                echo '911 multiple A records for update found instead of one';
-                exit;
+            } 
+        } else {
+            // If no IPv4 address is provided, delete the existing A record if it exists
+            if (!empty($aRecords)) {
+                $ovh->deleteDnsRecord($config['zone_name'], $aRecords[0]);
             }
         }
 
+
         // Update IPv6 address
         if (!is_null($ipv6)) {
-            $fieldType = 'AAAA';
-            $records = $ovh->getDnsRecords($config['zone_name'], $subdomain, $fieldType);
 
-            if (empty($records)) {
+            if (empty($aaaaRecords)) {
                 // No records found, create new one with TTL=60
-                $ovh->createDnsRecord($config['zone_name'], $subdomain, $fieldType, $ipv6, $ttl);
+                $ovh->createDnsRecord($config['zone_name'], $subdomain, 'AAAA', $ipv6, $ttl);
                 $responses[] = "good $ipv6";
-            } elseif (count($records) === 1) {
+            } else {
                 // Exactly one record found, retrieve current IP
-                $recordDetails = $ovh->getDnsRecordDetails($config['zone_name'], $records[0]);
+                $recordDetails = $ovh->getDnsRecordDetails($config['zone_name'], $aaaaRecords[0]);
                 $currentRecordIp = $recordDetails['target']; // Adjust this based on actual API response structure
 
                 if ($currentRecordIp === $ipv6) {
@@ -208,14 +223,14 @@ if (strpos($authHeader, 'Basic ') === 0) {
                     $responses[] = "nochg $ipv6";
                 } else {
                     // IP does not match, update the record
-                    $ovh->updateDnsRecord($config['zone_name'], $records[0], $ipv6, $ttl);
+                    $ovh->updateDnsRecord($config['zone_name'], $aaaaRecords[0], $ipv6, $ttl);
                     $responses[] = "good $ipv6";
                 }
-            } else {
-                // Multiple records found, respond with error
-                http_response_code(500); // Internal Server Error
-                echo '911 multiple AAAA records for update found instead of one';
-                exit;
+            } 
+        } else {
+            // If no IPv6 address is provided, delete the existing AAAA record if it exists
+            if (!empty($aaaaRecords)) {
+                $ovh->deleteDnsRecord($config['zone_name'], $aaaaRecords[0]);
             }
         }
 
