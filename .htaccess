@@ -1,2 +1,12 @@
 RewriteEngine On
 RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+# Deny access to sensitive PHP configuration files
+<FilesMatch "^(accounts|dynconfig)\.php$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Deny access to all files that are not PHP
+RewriteCond %{REQUEST_URI} !\.php$
+RewriteRule ^ - [F,L]

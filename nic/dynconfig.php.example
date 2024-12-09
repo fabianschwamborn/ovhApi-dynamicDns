@@ -1,0 +1,15 @@
+<?php
+return [
+    // OVH API credentials
+    'app_key' => '',        // Your OVH API Application Key
+    'app_secret' => '',     // Your OVH API Application Secret
+    'endpoint' => 'ovh-eu', // OVH API Endpoint
+    'consumer_key' => '',   // Your OVH API Consumer Key
+    
+    // Domain configuration
+    'zone_name' => '',      // Your domain (e.g. example.com)
+    'domain_prefix' => '',   // Prefix for dynamic DNS (e.g. 'dyn' or empty)
+
+    // TTL for DNS records
+    'ttl' => 60,                  // Adjust TTL as needed
+];
