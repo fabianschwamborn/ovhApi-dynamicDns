@@ -33,8 +33,8 @@ if (!isset($_SERVER['HTTP_AUTHORIZATION'])) {
 }
 
 // Load credentials array (remoteSystemName => passwordHash) from a separate file
-$users = include 'accounts.php';
-if (!$users) {
+$accountConfig = include 'accounts.php';
+if (!$accountConfig) {
     http_response_code(500);
     echo '911 Internal Server Accountconfigurationfile Error'; // Internal Server Error
     exit;
@@ -50,17 +50,34 @@ if (strpos($authHeader, 'Basic ') === 0) {
         echo 'badauth';
         exit;
     }
-    list($remoteSystemName, $password) = explode(':', $decodedCredentials, 2);
+    list($basicAuthUsername, $password) = explode(':', $decodedCredentials, 2);
 
-    if (!isset($users[$remoteSystemName])) {
+    if (!isset($accountConfig['accounts']) || !isset($accountConfig['accounts'][$basicAuthUsername])) {
         http_response_code(403); // Forbidden
         echo 'badauth';
         exit;
     }
 
-    if (!password_verify($password, $users[$remoteSystemName])) {
+    
+    // read variables from accountConfig for the specific account
+    $accountPasswordHash = $accountConfig['accounts'][$basicAuthUsername][0];
+    $useVersion4 = isset($accountConfig['accounts'][$basicAuthUsername][1]) ? $accountConfig['accounts'][$basicAuthUsername][1] : null;
+    $useVersion6 = isset($accountConfig['accounts'][$basicAuthUsername][2]) ? $accountConfig['accounts'][$basicAuthUsername][2] : null;
+    $deleteNotUpdatedRecords = isset($accountConfig['accounts'][$basicAuthUsername][3]) ? $accountConfig['accounts'][$basicAuthUsername][3] : null;
+   
+    // The basicAuthUsername is the remote system name, currently no separate domain association in config
+    $remoteSystemName = $basicAuthUsername; // currently we use the username for the remote system name (subdomain)
+
+    // Validate boolean variables
+    if (!is_bool($useVersion4) || !is_bool($useVersion6) || !is_bool($deleteNotUpdatedRecords)) {
+        http_response_code(500);
+        echo '991 accounts config file entry error';
+        exit;
+    }
+
+    if (!password_verify($password,$accountPasswordHash)) {
         http_response_code(403); // Forbidden
-        echo 'badauth';
+        echo 'badauth'; // Invalid password
         exit;
     }
 
@@ -131,6 +148,7 @@ if (strpos($authHeader, 'Basic ') === 0) {
         }
     }
 
+
     // If no IP is provided, attempt to use the caller's IP address (not fully protocol compliant)
     if (is_null($ipv4) && is_null($ipv6)) {
         $remoteIp = $_SERVER['REMOTE_ADDR'];
@@ -143,6 +161,19 @@ if (strpos($authHeader, 'Basic ') === 0) {
             echo 'notfqdn'; // Not a Fully Qualified Domain Name or no valid IP provided
             exit;
         }
+    }
+
+    // Reflect config in regard to limit updates to a certain ip version
+    if (!$useVersion4 && !is_null($ipv4)) {
+        $ipv4 = null;
+    }
+    if (!$useVersion6 && !is_null($ipv6)) {
+        $ipv6 = null;
+    }
+    if ($ipv4 == null && $ipv6 == null) {
+        http_response_code(400); // Bad Request
+        echo 'notconfiguredipversion'; // No valid IP provided
+        exit;
     }
 
     // Construct the full subdomain, handling empty domain prefix
@@ -200,7 +231,7 @@ if (strpos($authHeader, 'Basic ') === 0) {
             } 
         } else {
             // If no IPv4 address is provided, delete the existing A record if it exists
-            if (!empty($aRecords)) {
+            if ($deleteNotUpdatedRecords && !empty($aRecords)) {
                 $ovh->deleteDnsRecord($config['zone_name'], $aRecords[0]);
             }
         }
@@ -229,7 +260,7 @@ if (strpos($authHeader, 'Basic ') === 0) {
             } 
         } else {
             // If no IPv6 address is provided, delete the existing AAAA record if it exists
-            if (!empty($aaaaRecords)) {
+            if ($deleteNotUpdatedRecords && !empty($aaaaRecords)) {
                 $ovh->deleteDnsRecord($config['zone_name'], $aaaaRecords[0]);
             }
         }

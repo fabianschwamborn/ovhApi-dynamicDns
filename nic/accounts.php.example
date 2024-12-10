@@ -1,6 +1,9 @@
 <?php
 return [
-    'remoteSystemName1' => 'saltedPasswordHash1',
-    'remoteSystemName2' => 'saltedPasswordHash2',
-    'remoteSystemName3' => 'saltedPasswordHash3',
+    'accounts' => [
+        // accountName => [password, useVersion4, useVersion6, deleteNotUpdatedRecords]
+        'device1' => ['$2a$13$hashedpasswordhere...', true, true, true],  // all features enabled (recommended default)
+        'device2' => ['$2a$13$anotherhashedpw...', true, false, true],   // IPv4 records only
+        'device3' => ['$2a$13$yetanotherhashedpw...', true, true, false],  // use with care, sparse record deletion disabled (e.g. when client sends 2 request after another)
+    ]
 ];
